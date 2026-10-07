@@ -47,7 +47,7 @@
             const app = initializeApp(firebaseConfig);
             db = getFirestore(app);
         } catch (e) {
-            console.error("Firebase 失敗", e);
+            console.error("Firebase 初始化失敗", e);
         }
 
         let exhibitions = [];
@@ -113,13 +113,38 @@
                         <button onclick="window.switchView('map')" style="flex:1; padding:20px; background:#10b981;">互動地圖與攤位</button>
                     </div>
                 `;
+            }
+        }
 
-            } else if (currentView === "vendors") {
-                const ex = exhibitions.find(e => e.id === currentExId);
-                const vendors = ex.vendors || [];
-                let html = `
-                    <button onclick="window.switchView('detail')" style="background:gray; margin-bottom:15px;">← 回到選單</button>
-                    <h1>廠商與商品管理</h1>
-                    <div style="background:#f3f4f6; padding:15px; border-radius:6px; margin-bottom:20px;">
-                        <h3>新增廠商</h3>
-                        <input id="v-name"
+        // 基本功能函式
+        window.showAddModal = function() {
+            alert("這裡要做新增展會的表單");
+        };
+
+        window.enterExhibition = function(id) {
+            currentExId = id;
+            currentView = "detail";
+            render();
+        };
+
+        window.deleteExhibition = async function(id) {
+            if (!db) return;
+            await deleteDoc(doc(db, "exhibitions", id));
+            loadData();
+        };
+
+        window.goHome = function() {
+            currentView = "home";
+            render();
+        };
+
+        window.switchView = function(view) {
+            currentView = view;
+            render();
+        };
+
+        // 頁面載入後執行
+        loadData();
+    </script>
+</body>
+</html>
