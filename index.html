@@ -25,7 +25,7 @@
 <body>
 
     <div class="container">
-        <div id="main-content">載入中...</div>
+        <div id="main-content">連線雲端中...</div>
     </div>
 
     <script type="module">
@@ -47,7 +47,7 @@
             const app = initializeApp(firebaseConfig);
             db = getFirestore(app);
         } catch (e) {
-            console.error("Firebase 初始化失敗", e);
+            console.error("Firebase 失敗", e);
         }
 
         let exhibitions = [];
@@ -55,10 +55,7 @@
         let currentExId = null;
 
         async function loadData() {
-            if (!db) {
-                render();
-                return;
-            }
+            if (!db) { render(); return; }
             try {
                 const querySnapshot = await getDocs(collection(db, "exhibitions"));
                 exhibitions = [];
@@ -106,44 +103,173 @@
             } else if (currentView === "detail") {
                 const ex = exhibitions.find(e => e.id === currentExId);
                 container.innerHTML = `
-                    <button onclick="window.goHome()" style="background:gray; margin-bottom:15px;">← 回到列表</button>
+                    <button onclick="window.goHome()" style="background:gray; margin-bottom:15px;">← 回到首頁</button>
                     <h1>${ex.name}</h1>
                     <div style="display: flex; gap: 15px;">
                         <button onclick="window.switchView('vendors')" style="flex:1; padding:20px;">廠商與商品管理</button>
                         <button onclick="window.switchView('map')" style="flex:1; padding:20px; background:#10b981;">互動地圖與攤位</button>
                     </div>
                 `;
+
+            } else if (currentView === "vendors") {
+                const ex = exhibitions.find(e => e.id === currentExId);
+                const vendors = ex.vendors || [];
+                let html = `
+                    <button onclick="window.switchView('detail')" style="background:gray; margin-bottom:15px;">← 回到展會選單</button>
+                    <h1>廠商與商品管理</h1>
+                    <div style="background:#f3f4f6; padding:15px; border-radius:6px; margin-bottom:20px;">
+                        <h3>新增廠商</h3>
+                        <input id="v-name" placeholder="廠商名稱">
+                        <input id="v-code" placeholder="攤位代碼 (例如: A01)">
+                        <input id="v-img" placeholder="Logo 或商品圖片網址">
+                        <input id="v-url" placeholder="官方網站網址 (https://...)">
+                        <input id="p-name" placeholder="推薦商品名稱">
+                        <input id="p-price" placeholder="商品價格">
+                        <button onclick="window.addVendor()">儲存廠商</button>
+                    </div>
+                    <div>
+                        <h3>已建立的廠商</h3>
+                `;
+                if (vendors.length === 0) {
+                    html += '<p style="color:gray;">尚無廠商</p>';
+                } else {
+                    for (let i = 0; i < vendors.length; i++) {
+                        let v = vendors[i];
+                        html += `
+                            <div class="card">
+                                <div>
+                                    <strong>${v.name}</strong> [${v.code}]
+                                    <div style="font-size:12px; color:gray; margin-top:4px;">商品: ${v.productName || '無'} ($${v.productPrice || 0})</div>
+                                    ${v.url ? `<div style="margin-top:4px;"><a href="${v.url}" target="_blank" style="font-size:12px; color:blue;">官方連結</a></div>` : ''}
+                                </div>
+                                <button class="btn-red" onclick="window.deleteVendor(${i})">刪除</button>
+                            </div>
+                        `;
+                    }
+                }
+                html += '</div>';
+                container.innerHTML = html;
+
+            } else if (currentView === "map") {
+                // 這裡示範建立 A01~A03 跟 B01~B03 的格子，你可以隨意擴充
+                let codes = ['A01', 'A02', 'A03', 'B01', 'B02', 'B03'];
+                let mapHtml = '';
+                for (let i = 0; i < codes.length; i++) {
+                    let code = codes[i];
+                    mapHtml += `
+                        <div class="map-box" onclick="window.openVendorByCode('${code}')">
+                            <strong>${code}</strong>
+                            <span style="font-size:10px; color:gray;">點擊看詳情</span>
+                        </div>
+                    `;
+                }
+
+                container.innerHTML = `
+                    <button onclick="window.switchView('detail')" style="background:gray; margin-bottom:15px;">← 回到展會選單</button>
+                    <h1>互動地圖點擊</h1>
+                    <div class="grid-map">
+                        ${mapHtml}
+                    </div>
+                    <div id="map-modal-info" class="modal hidden">
+                        <h3>攤位資訊</h3>
+                        <div id="modal-content-body"></div>
+                    </div>
+                `;
             }
         }
 
-        // 基本功能函式
-        window.showAddModal = function() {
-            alert("這裡要做新增展會的表單");
+        // --- 功能操作區 ---
+
+        window.showAddModal = async function() {
+            const name = prompt("請輸入展會名稱 (例如: TTF 2026):");
+            if (!name) return;
+            if (!db) { alert("尚未連線到雲端資料庫！"); return; }
+            try {
+                await addDoc(collection(db, "exhibitions"), { name: name, vendors: [] });
+                alert("新增成功！");
+                loadData();
+            } catch (e) {
+                alert("新增失敗，請檢查 Firebase 規則。");
+            }
         };
 
-        window.enterExhibition = function(id) {
-            currentExId = id;
-            currentView = "detail";
-            render();
+        window.enterExhibition = function(id) { currentExId = id; currentView = "detail"; render(); };
+        window.switchView = function(view) { currentView = view; render(); };
+        window.goHome = function() { currentView = "home"; currentExId = null; loadData(); };
+
+        window.addVendor = async function() {
+            const name = document.getElementById('v-name').value;
+            const code = document.getElementById('v-code').value;
+            const img = document.getElementById('v-img').value;
+            const url = document.getElementById('v-url').value;
+            const productName = document.getElementById('p-name').value;
+            const productPrice = document.getElementById('p-price').value;
+
+            if (!name || !code) { alert('請務必填寫廠商名稱與攤位代碼！'); return; }
+            if (!db) { alert("尚未連線到雲端資料庫！"); return; }
+
+            const ex = exhibitions.find(e => e.id === currentExId);
+            if (!ex.vendors) ex.vendors = [];
+            
+            // 檢查攤位代碼是否重複
+            const duplicate = ex.vendors.some(v => String(v.code).toUpperCase() === code.toUpperCase());
+            if (duplicate) { alert("攤位代碼「" + code + "」已經有廠商了！"); return; }
+
+            ex.vendors.push({ name, code: code.toUpperCase(), img, url, productName, productPrice });
+
+            try {
+                await updateDoc(doc(db, "exhibitions", currentExId), { vendors: ex.vendors });
+                alert("廠商儲存成功！");
+                render();
+            } catch (e) {
+                alert("雲端儲存失敗");
+            }
+        };
+
+        window.deleteVendor = async function(idx) {
+            if (!confirm("確定要刪除這個廠商嗎？")) return;
+            const ex = exhibitions.find(e => e.id === currentExId);
+            ex.vendors.splice(idx, 1);
+            try {
+                await updateDoc(doc(db, "exhibitions", currentExId), { vendors: ex.vendors });
+                render();
+            } catch (e) {
+                alert("刪除失敗");
+            }
         };
 
         window.deleteExhibition = async function(id) {
-            if (!db) return;
-            await deleteDoc(doc(db, "exhibitions", id));
-            loadData();
+            if (confirm("確定刪除此展會與裡面所有的廠商資料嗎？")) {
+                if (!db) return;
+                try {
+                    await deleteDoc(doc(db, "exhibitions", id));
+                    loadData();
+                } catch (e) {
+                    alert("刪除失敗");
+                }
+            }
         };
 
-        window.goHome = function() {
-            currentView = "home";
-            render();
+        window.openVendorByCode = function(code) {
+            const ex = exhibitions.find(e => e.id === currentExId);
+            const vendor = (ex.vendors || []).find(v => String(v.code).toUpperCase() === code.toUpperCase());
+            const infoBox = document.getElementById('map-modal-info');
+            const bodyBox = document.getElementById('modal-content-body');
+            infoBox.classList.remove('hidden');
+            
+            if (vendor) {
+                bodyBox.innerHTML = `
+                    <p style="margin:5px 0;"><strong>店家名稱:</strong> ${vendor.name}</p>
+                    <p style="margin:5px 0;"><strong>攤位代碼:</strong> ${vendor.code}</p>
+                    <p style="margin:5px 0;"><strong>推薦商品:</strong> ${vendor.productName || '無'} ($${vendor.productPrice || 0})</p>
+                    ${vendor.url ? `<p style="margin:5px 0;"><a href="${vendor.url}" target="_blank" style="color:blue;">前往官方網址 →</a></p>` : ''}
+                    ${vendor.img ? `<img src="${vendor.img}" style="width:100px; height:100px; object-fit:cover; margin-top:10px; border:1px solid #ccc; border-radius:4px;">` : ''}
+                `;
+            } else {
+                bodyBox.innerHTML = `<p style="color:gray;">代碼 <strong>${code}</strong> 尚無登錄廠商資料。</p>`;
+            }
         };
 
-        window.switchView = function(view) {
-            currentView = view;
-            render();
-        };
-
-        // 頁面載入後執行
         loadData();
     </script>
 </body>
