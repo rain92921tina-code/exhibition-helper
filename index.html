@@ -3,20 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>展會小幫手 - 雲端版</title>
-    <!-- 改用穩定且不會被阻擋的 Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>展會小幫手</title>
+    <style>
+        body { font-family: sans-serif; background: #f9fafb; color: #1f2937; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        h1 { color: #2563eb; font-size: 24px; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; }
+        button { background: #2563eb; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+        button:hover { background: #1d4ed8; }
+        .btn-red { background: #ef4444; }
+        .btn-red:hover { background: #dc2626; }
+        input { width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #d1d5db; border-radius: 4px; box-sizing: border-box; }
+        .card { border: 1px solid #e5e7eb; padding: 15px; border-radius: 6px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; background: #fff; }
+        .card:hover { background: #f3f4f6; }
+        .grid-map { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+        .map-box { border: 2px dashed #9ca3af; height: 80px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 6px; cursor: pointer; background: #fff; }
+        .map-box:hover { border-color: #2563eb; background: #eff6ff; }
+        .hidden { display: none; }
+        .modal { background: #f8fafc; border: 1px solid #cbd5e1; padding: 15px; border-radius: 6px; margin-top: 15px; }
+    </style>
 </head>
-<body class="bg-gray-50 text-gray-800 font-sans">
+<body>
 
-    <div id="app" class="max-w-4xl mx-auto p-4 min-h-screen flex flex-col justify-between">
-        <div id="main-content">
-            <div class="text-center py-20 text-gray-400">正在連線至雲端資料庫...</div>
-        </div>
-        <footer class="text-center text-xs text-gray-400 py-6">展會小幫手 (雲端同步版) &copy; 2026</footer>
+    <div class="container">
+        <div id="main-content">載入中...</div>
     </div>
 
-    <!-- Firebase -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
         import { getFirestore, collection, getDocs, addDoc, deleteDoc, updateDoc, doc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
@@ -35,24 +46,13 @@
         try {
             const app = initializeApp(firebaseConfig);
             db = getFirestore(app);
-            console.log("Firebase 初始化成功");
-        } catch (error) {
-            console.error("Firebase 初始化失敗:", error);
+        } catch (e) {
+            console.error("Firebase 失敗", e);
         }
 
         let exhibitions = [];
         let currentView = "home";
         let currentExId = null;
-
-        function escapeHTML(value) {
-            if (value === undefined || value === null) return "";
-            return String(value)
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
-        }
 
         async function loadData() {
             if (!db) {
@@ -65,9 +65,8 @@
                 querySnapshot.forEach((docSnap) => {
                     exhibitions.push({ id: docSnap.id, ...docSnap.data() });
                 });
-                console.log("Firebase 資料載入成功:", exhibitions);
             } catch (error) {
-                console.error("Firebase 讀取失敗:", error);
+                console.error("讀取失敗", error);
             }
             render();
         }
@@ -77,207 +76,50 @@
             container.innerHTML = "";
 
             if (currentView === "home") {
-                container.innerHTML = `
-                    <div>
-                        <header class="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-6 border-b pb-4">
-                            <div>
-                                <h1 class="text-2xl font-bold text-blue-600">展會紀錄總覽</h1>
-                                <p class="text-xs text-gray-400 mt-1">Firebase 雲端同步版</p>
-                            </div>
-                            <button onclick="window.showAddModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 cursor-pointer">+ 新增展會</button>
-                        </header>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            ${exhibitions.length === 0 ? '<div class="col-span-2 text-center py-10 text-gray-400"><p>目前雲端沒有展會</p><p class="text-xs mt-2">點擊右上角「新增展會」</p></div>' : exhibitions.map(ex => `
-                                <div onclick="window.enterExhibition('${escapeHTML(ex.id)}')" class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition flex justify-between items-center">
-                                    <div>
-                                        <h2 class="text-lg font-bold text-gray-800">${escapeHTML(ex.name)}</h2>
-                                        <p class="text-xs text-gray-400 mt-1">廠商數：${ex.vendors ? ex.vendors.length : 0} 家</p>
-                                    </div>
-                                    <button onclick="event.stopPropagation(); window.deleteExhibition('${escapeHTML(ex.id)}')" class="text-red-400 hover:text-red-600 text-xs p-2">刪除</button>
-                                </div>
-                            `).join("")}
-                        </div>
+                let html = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h1>展會紀錄總覽</h1>
+                        <button onclick="window.showAddModal()">+ 新增展會</button>
                     </div>
+                    <div>
                 `;
+                if (exhibitions.length === 0) {
+                    html += '<p style="color: gray; text-align: center;">目前沒有展會，點擊右上角新增一個吧！</p>';
+                } else {
+                    for (let i = 0; i < exhibitions.length; i++) {
+                        let ex = exhibitions[i];
+                        let count = ex.vendors ? ex.vendors.length : 0;
+                        html += `
+                            <div class="card" onclick="window.enterExhibition('${ex.id}')">
+                                <div>
+                                    <strong>${ex.name}</strong>
+                                    <div style="font-size: 12px; color: gray; margin-top: 5px;">廠商數：${count} 家</div>
+                                </div>
+                                <button class="btn-red" onclick="event.stopPropagation(); window.deleteExhibition('${ex.id}')">刪除</button>
+                            </div>
+                        `;
+                    }
+                }
+                html += '</div>';
+                container.innerHTML = html;
+
             } else if (currentView === "detail") {
                 const ex = exhibitions.find(e => e.id === currentExId);
-                if (!ex) { currentView = "home"; render(); return; }
                 container.innerHTML = `
-                    <div>
-                        <button onclick="window.goHome()" class="text-blue-600 text-sm mb-4 inline-block">← 回到展會列表</button>
-                        <h1 class="text-2xl font-bold mb-2">${escapeHTML(ex.name)}</h1>
-                        <p class="text-sm text-gray-400 mb-6">展會功能選單</p>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <button onclick="window.switchView('vendors')" class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 text-center hover:bg-blue-50 cursor-pointer">
-                                <div class="text-xl font-bold text-blue-600 mb-1">廠商與商品管理</div>
-                                <p class="text-xs text-gray-500">新增廠商、Logo、商品、價格與網址</p>
-                            </button>
-                            <button onclick="window.switchView('map')" class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 text-center hover:bg-green-50 cursor-pointer">
-                                <div class="text-xl font-bold text-green-600 mb-1">互動地圖與攤位</div>
-                                <p class="text-xs text-gray-500">點擊攤位查看商家資訊</p>
-                            </button>
-                        </div>
+                    <button onclick="window.goHome()" style="background:gray; margin-bottom:15px;">← 回到列表</button>
+                    <h1>${ex.name}</h1>
+                    <div style="display: flex; gap: 15px;">
+                        <button onclick="window.switchView('vendors')" style="flex:1; padding:20px;">廠商與商品管理</button>
+                        <button onclick="window.switchView('map')" style="flex:1; padding:20px; background:#10b981;">互動地圖與攤位</button>
                     </div>
                 `;
+
             } else if (currentView === "vendors") {
                 const ex = exhibitions.find(e => e.id === currentExId);
-                if (!ex) { currentView = "home"; render(); return; }
                 const vendors = ex.vendors || [];
-                container.innerHTML = `
-                    <div>
-                        <button onclick="window.switchView('detail')" class="text-blue-600 text-sm mb-4 inline-block">← 回到功能選單</button>
-                        <h1 class="text-2xl font-bold mb-4">廠商與商品管理</h1>
-                        <div class="bg-white p-4 rounded-xl shadow-sm border mb-6">
-                            <h2 class="font-bold text-sm mb-3">新增廠商與商品</h2>
-                            <input id="v-name" type="text" placeholder="廠商名稱" class="w-full border p-2 rounded mb-2 text-sm">
-                            <input id="v-code" type="text" placeholder="攤位代碼，例如：A01" class="w-full border p-2 rounded mb-2 text-sm">
-                            <input id="v-img" type="url" placeholder="Logo 圖片網址" class="w-full border p-2 rounded mb-2 text-sm">
-                            <input id="v-url" type="url" placeholder="官方網站 / 賣場網址 (https://...)" class="w-full border p-2 rounded mb-2 text-sm">
-                            <input id="p-name" type="text" placeholder="推薦商品名稱" class="w-full border p-2 rounded mb-2 text-sm">
-                            <input id="p-price" type="text" placeholder="價格" class="w-full border p-2 rounded mb-4 text-sm">
-                            <button onclick="window.addVendor()" class="bg-blue-600 text-white w-full py-2 rounded text-sm cursor-pointer hover:bg-blue-700">新增廠商</button>
-                        </div>
-                        <div class="space-y-3">
-                            <h2 class="font-bold text-sm">已建立的廠商清單</h2>
-                            ${vendors.length === 0 ? '<p class="text-gray-400 text-sm">尚未新增廠商</p>' : vendors.map((v, idx) => `
-                                <div class="bg-white p-4 rounded-xl shadow-sm border flex flex-col sm:flex-row justify-between gap-3">
-                                    <div class="flex gap-3 items-start">
-                                        ${v.img ? `<img src="${escapeHTML(v.img)}" class="w-16 h-16 object-contain rounded border" onerror="this.style.display='none'">` : ""}
-                                        <div>
-                                            <div class="font-bold">${escapeHTML(v.name)} <span class="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-600">${escapeHTML(v.code)}</span></div>
-                                            <div class="text-xs text-gray-500 mt-1">商品：${escapeHTML(v.productName \vert{}\vert{} "無")} ${v.productPrice ? `（價格：$${escapeHTML(v.productPrice)}）` : ""}</div>
-                                            ${v.url ? `<a href="${escapeHTML(v.url)}" target="_blank" rel="noopener noreferrer" class="text-xs text-blue-500 underline mt-1 inline-block">官方連結</a>` : ""}
-                                        </div>
-                                    </div>
-                                    <button onclick="window.deleteVendor(${idx})" class="text-red-500 text-xs cursor-pointer self-start">刪除</button>
-                                </div>
-                            `).join("")}
-                        </div>
-                    </div>
-                `;
-            } else if (currentView === "map") {
-                container.innerHTML = `
-                    <div>
-                        <button onclick="window.switchView('detail')" class="text-blue-600 text-sm mb-4 inline-block">← 回到功能選單</button>
-                        <h1 class="text-2xl font-bold mb-2">互動地圖</h1>
-                        <p class="text-xs text-gray-500 mb-4">點擊下方攤位代碼，即可查看商家資訊。</p>
-                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
-                            ${["A01", "A02", "A03", "B01", "B02", "B03"].map(code => `
-                                <div onclick="window.openVendorByCode('${code}')" class="bg-white border-2 border-dashed border-gray-300 h-24 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition">
-                                    <span class="font-bold text-gray-700">${code}</span>
-                                    <span class="text-[10px] text-gray-400 mt-1">點擊看詳情</span>
-                                </div>
-                            `).join("")}
-                        </div>
-                        <div id="map-modal-info" class="bg-white p-4 rounded-xl shadow-sm border hidden">
-                            <h3 class="font-bold text-blue-600 mb-2">攤位資訊</h3>
-                            <div id="modal-content-body" class="text-sm"></div>
-                        </div>
-                    </div>
-                `;
-            }
-        }
-
-        window.showAddModal = async function() {
-            const name = prompt("請輸入展會名稱，例如：TTF 2026");
-            if (!name || !name.trim()) return;
-            if (!db) { alert("Firebase 尚未成功連線。"); return; }
-            try {
-                await addDoc(collection(db, "exhibitions"), { name: name.trim(), vendors: [], createdAt: new Date().toISOString() });
-                alert("展會新增成功！");
-                await loadData();
-            } catch (error) {
-                console.error("新增展會失敗:", error);
-                alert("新增展會失敗！請確認 Firestore Database 與 Rules 是否設定正確。");
-            }
-        };
-
-        window.enterExhibition = function(id) { currentExId = id; currentView = "detail"; render(); };
-        window.switchView = function(view) { currentView = view; render(); };
-        window.goHome = function() { currentView = "home"; currentExId = null; loadData(); };
-
-        window.addVendor = async function() {
-            const name = document.getElementById("v-name").value.trim();
-            const code = document.getElementById("v-code").value.trim();
-            const img = document.getElementById("v-img").value.trim();
-            const url = document.getElementById("v-url").value.trim();
-            const productName = document.getElementById("p-name").value.trim();
-            const productPrice = document.getElementById("p-price").value.trim();
-
-            if (!name || !code) { alert("請至少填寫「廠商名稱」與「攤位代碼」！"); return; }
-            const ex = exhibitions.find(e => e.id === currentExId);
-            if (!ex) { alert("找不到目前的展會。"); return; }
-            if (!db) { alert("Firebase 尚未成功連線。"); return; }
-
-            try {
-                const vendors = ex.vendors ? [...ex.vendors] : [];
-                const duplicate = vendors.some(v => String(v.code).toUpperCase() === code.toUpperCase());
-                if (duplicate) { alert("攤位代碼「" + code + "」已經有廠商了！"); return; }
-
-                vendors.push({ name, code: code.toUpperCase(), img, url, productName, productPrice });
-                await updateDoc(doc(db, "exhibitions", currentExId), { vendors: vendors });
-                ex.vendors = vendors;
-                alert("廠商已成功儲存到雲端！");
-                render();
-            } catch (error) {
-                console.error("新增廠商失敗:", error);
-                alert("廠商儲存失敗！");
-            }
-        };
-
-        window.deleteVendor = async function(idx) {
-            const ex = exhibitions.find(e => e.id === currentExId);
-            if (!ex || !ex.vendors || !confirm("確定要刪除這個廠商嗎？")) return;
-            try {
-                const vendors = [...ex.vendors];
-                vendors.splice(idx, 1);
-                await updateDoc(doc(db, "exhibitions", currentExId), { vendors: vendors });
-                ex.vendors = vendors;
-                render();
-            } catch (error) {
-                console.error("刪除廠商失敗:", error);
-                alert("刪除廠商失敗！");
-            }
-        };
-
-        window.deleteExhibition = async function(id) {
-            if (!confirm("確定要刪除這個展會嗎？")) return;
-            if (!db) { alert("Firebase 尚未成功連線。"); return; }
-            try {
-                await deleteDoc(doc(db, "exhibitions", id));
-                alert("展會已刪除。");
-                await loadData();
-            } catch (error) {
-                console.error("刪除展會失敗:", error);
-                alert("刪除失敗。");
-            }
-        };
-
-        window.openVendorByCode = function(code) {
-            const ex = exhibitions.find(e => e.id === currentExId);
-            if (!ex) return;
-            const vendors = ex.vendors || [];
-            const vendor = vendors.find(v => String(v.code).toUpperCase() === code.toUpperCase());
-            const infoBox = document.getElementById("map-modal-info");
-            const bodyBox = document.getElementById("modal-content-body");
-            if (!infoBox || !bodyBox) return;
-
-            infoBox.classList.remove("hidden");
-            if (vendor) {
-                bodyBox.innerHTML = `
-                    ${vendor.img ? `<img src="${escapeHTML(vendor.img)}" class="w-24 h-24 object-contain rounded border mb-3" onerror="this.style.display='none'">` : ""}
-                    <p class="mb-1"><strong>店家名稱：</strong>${escapeHTML(vendor.name)}</p>
-                    <p class="mb-1"><strong>攤位代碼：</strong>${escapeHTML(vendor.code)}</p>
-                    <p class="mb-1"><strong>推薦商品：</strong>${escapeHTML(vendor.productName || "無")}</p>
-                    <p class="mb-1"><strong>價格：</strong>${vendor.productPrice ? "$" + escapeHTML(vendor.productPrice) : "未提供"}</p>
-                    ${vendor.url ? `<p class="mt-3"><a href="${escapeHTML(vendor.url)}" target="_blank" rel="noopener noreferrer" class="bg-blue-600 text-white text-xs px-3 py-2 rounded inline-block hover:bg-blue-700">前往官方網站 →</a></p>` : `<p class="text-xs text-gray-400 mt-3">此廠商尚未提供網站</p>`}
-                `;
-            } else {
-                bodyBox.innerHTML = `<p class="text-gray-400">代碼 <strong>${escapeHTML(code)}</strong> 尚無登錄的廠商資料。</p>`;
-            }
-        };
-
-        loadData();
-    </script>
-</body>
-</html>
+                let html = `
+                    <button onclick="window.switchView('detail')" style="background:gray; margin-bottom:15px;">← 回到選單</button>
+                    <h1>廠商與商品管理</h1>
+                    <div style="background:#f3f4f6; padding:15px; border-radius:6px; margin-bottom:20px;">
+                        <h3>新增廠商</h3>
+                        <input id="v-name"
